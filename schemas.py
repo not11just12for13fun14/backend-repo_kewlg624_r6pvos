@@ -11,38 +11,45 @@ Model name is converted to lowercase for the collection name:
 - BlogPost -> "blogs" collection
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, HttpUrl
+from typing import Optional, List, Literal
 
-# Example schemas (replace with your own):
+# Core entities for the AI Shorts Automation
 
-class User(BaseModel):
+class Account(BaseModel):
     """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
+    Connected social account tokens/metadata
+    Collection name: "account"
     """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    platform: Literal["youtube", "tiktok", "instagram"] = Field(..., description="Platform type")
+    account_name: Optional[str] = Field(None, description="Readable account label")
+    access_token: Optional[str] = Field(None, description="OAuth access token (encrypted at rest in production)")
+    refresh_token: Optional[str] = Field(None, description="OAuth refresh token")
+    expires_at: Optional[int] = Field(None, description="Epoch seconds when token expires")
+    connected: bool = Field(default=False, description="Whether the account is connected")
 
-class Product(BaseModel):
+class VideoJob(BaseModel):
     """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
+    A job to create and optionally auto-post a short video from Reddit content
+    Collection name: "videojob"
     """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    title: Optional[str] = Field(None, description="Optional custom title for the video")
+    subreddit: Optional[str] = Field(None, description="Subreddit to pull content from")
+    reddit_post_url: Optional[HttpUrl] = Field(None, description="Specific Reddit post URL")
+    keyword: Optional[str] = Field(None, description="Keyword/topic to search on Reddit")
 
-# Add your own schemas here:
-# --------------------------------------------------
+    voice: Literal["female-soft", "female-energetic", "male-calm", "male-dramatic"] = Field(
+        default="female-soft", description="TTS voice preset"
+    )
+    aspect_ratio: Literal["9:16", "1:1", "16:9"] = Field(default="9:16", description="Output aspect ratio")
+    include_captions: bool = Field(default=True, description="Burn captions into video")
+    include_broll: bool = Field(default=True, description="Auto add b-roll and sound effects")
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+    autopost_youtube: bool = Field(default=False)
+    autopost_tiktok: bool = Field(default=False)
+    autopost_instagram: bool = Field(default=False)
+
+    status: Literal["queued", "processing", "completed", "failed"] = Field(default="queued")
+    error: Optional[str] = None
+    result_video_url: Optional[HttpUrl] = None
+    platforms_posted: List[str] = Field(default_factory=list)
